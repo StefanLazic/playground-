@@ -144,6 +144,47 @@
       75% { transform: rotateY(180deg) translateX(6px); }
     }
 
+    .preview {
+      width: min(640px, 100%);
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 16px;
+    }
+    .preview h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      text-align: center;
+      opacity: 0.8;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 520px) {
+      .preview-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 360px) {
+      .preview-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .preview-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #eee;
+      display: block;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+    .preview-grid .placeholder {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.5);
+      border: 2px dashed rgba(0, 0, 0, 0.15);
+    }
+
     .loading, .error {
       width: min(640px, 100%);
       min-height: 200px;
@@ -254,15 +295,16 @@
   <div class="toolbar">
     <div class="stat">Moves: <span id="moves">0</span></div>
     <div class="stat">Pairs: <span id="pairs">0</span>/10</div>
-    <button id="newGameBtn" type="button">New Game</button>
+    <button id="loadCatsBtn" type="button">Load Cats</button>
+    <button id="newGameBtn" type="button" disabled>New Game</button>
   </div>
 
-  <div id="boardContainer">
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <div>Loading cats…</div>
-    </div>
+  <div class="preview" id="preview">
+    <h3 id="previewTitle">Click "Load Cats" to fetch 10 cat images</h3>
+    <div class="preview-grid" id="previewGrid"></div>
   </div>
+
+  <div id="boardContainer"></div>
 
   <div class="win-overlay" id="winOverlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
     <div class="win-card">
@@ -290,6 +332,9 @@
       const movesEl = document.getElementById('moves');
       const pairsEl = document.getElementById('pairs');
       const newGameBtn = document.getElementById('newGameBtn');
+      const loadCatsBtn = document.getElementById('loadCatsBtn');
+      const previewGrid = document.getElementById('previewGrid');
+      const previewTitle = document.getElementById('previewTitle');
       const winOverlay = document.getElementById('winOverlay');
       const winMovesEl = document.getElementById('winMoves');
       const playAgainBtn = document.getElementById('playAgainBtn');
@@ -299,6 +344,8 @@
       let lockBoard = false;
       let moves = 0;
       let matchedPairs = 0;
+      let preloadedUrls = [];
+      let loadingCats = false;
 
       function shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
@@ -520,49 +567,104 @@
         hideWin();
       }
 
-      function startNewGame() {
-        resetState();
-        renderLoading('Loading cats… (0/' + PAIR_COUNT + ')');
+      function renderPreviewPlaceholders() {
+        previewGrid.innerHTML = '';
+        for (let i = 0; i < PAIR_COUNT; i++) {
+          const ph = document.createElement('div');
+          ph.className = 'placeholder';
+          previewGrid.appendChild(ph);
+        }
+      }
+
+      function renderPreviewImages(urls) {
+        previewGrid.innerHTML = '';
+        urls.forEach((url) => {
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = 'A cat';
+          previewGrid.appendChild(img);
+        });
+      }
+
+      function addPreviewImage(url, slotIndex) {
+        const slot = previewGrid.children[slotIndex];
+        if (!slot) return;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'A cat';
+        previewGrid.replaceChild(img, slot);
+      }
+
+      function loadCats(onDone) {
+        if (loadingCats) return;
+        loadingCats = true;
+        loadCatsBtn.disabled = true;
+        newGameBtn.disabled = true;
+        preloadedUrls = [];
+        renderPreviewPlaceholders();
+        previewTitle.textContent = 'Loading cat 1/' + PAIR_COUNT + '…';
+
         const myToken = ++gameToken;
         const isCancelled = () => myToken !== gameToken;
-
         const loaded = [];
 
         function loadNext() {
           if (isCancelled()) return;
 
           if (loaded.length >= PAIR_COUNT) {
-            renderBoard(loaded);
+            preloadedUrls = loaded.slice();
+            previewTitle.textContent =
+              'Loaded ' + PAIR_COUNT + ' cats — click "New Game" to play!';
+            loadingCats = false;
+            loadCatsBtn.disabled = false;
+            newGameBtn.disabled = false;
+            if (typeof onDone === 'function') onDone();
             return;
           }
 
           const index = loaded.length + 1;
-          renderLoading(
-            'Loading cat ' + index + '/' + PAIR_COUNT + '…'
-          );
+          previewTitle.textContent =
+            'Loading cat ' + index + '/' + PAIR_COUNT + '…';
 
           fetchOneCat(isCancelled, (attempt) => {
             if (isCancelled()) return;
-            renderLoading(
+            previewTitle.textContent =
               'Loading cat ' + index + '/' + PAIR_COUNT +
-              '… (attempt ' + attempt + ' failed, retrying in 5s)'
-            );
+              '… (attempt ' + attempt + ' failed, retrying in 5s)';
           }).then(url => {
             if (isCancelled()) return;
+            const slot = loaded.length;
             loaded.push(url);
+            addPreviewImage(url, slot);
             loadNext();
           }).catch(() => {
             // Only reachable on cancellation; safe to ignore.
+            if (isCancelled()) {
+              loadingCats = false;
+              loadCatsBtn.disabled = false;
+              newGameBtn.disabled = preloadedUrls.length < PAIR_COUNT;
+            }
           });
         }
 
         loadNext();
       }
 
+      function startNewGame() {
+        if (preloadedUrls.length < PAIR_COUNT) {
+          // No images preloaded yet — fetch them first, then start.
+          loadCats(startNewGame);
+          return;
+        }
+        resetState();
+        boardContainer.innerHTML = '';
+        renderBoard(preloadedUrls);
+      }
+      loadCatsBtn.addEventListener('click', loadCats);
       newGameBtn.addEventListener('click', startNewGame);
       playAgainBtn.addEventListener('click', startNewGame);
 
-      startNewGame();
+      renderPreviewPlaceholders();
     })();
   </script>
 </body>
