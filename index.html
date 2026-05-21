@@ -317,12 +317,15 @@
       }
 
       function preloadImages(urls) {
-        return Promise.all(urls.map(url => new Promise((resolve, reject) => {
+        // Use allSettled so a single slow/failed cat doesn't kill the game.
+        return Promise.allSettled(urls.map(url => new Promise((resolve, reject) => {
           const im = new Image();
           im.onload = () => resolve(url);
           im.onerror = () => reject(new Error('Failed to load ' + url));
           im.src = url;
-        })));
+        }))).then(results => results
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value));
       }
 
       function renderLoading() {
@@ -471,7 +474,19 @@
         renderLoading();
         const urls = buildCatUrls(PAIR_COUNT);
         preloadImages(urls)
-          .then(renderBoard)
+          .then(loaded => {
+            if (loaded.length === 0) {
+              renderError('Could not load any cats. Check your connection.');
+              return;
+            }
+            // If some cats failed to load, reuse the ones we did get so we
+            // still have PAIR_COUNT pairs to play with.
+            const padded = [];
+            for (let i = 0; i < PAIR_COUNT; i++) {
+              padded.push(loaded[i % loaded.length]);
+            }
+            renderBoard(padded);
+          })
           .catch(err => {
             console.error(err);
             renderError('Could not load cats. Check your connection.');
