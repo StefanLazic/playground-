@@ -595,7 +595,7 @@
         previewGrid.replaceChild(img, slot);
       }
 
-      function loadCats() {
+      function loadCats(onDone) {
         if (loadingCats) return;
         loadingCats = true;
         loadCatsBtn.disabled = true;
@@ -618,6 +618,7 @@
             loadingCats = false;
             loadCatsBtn.disabled = false;
             newGameBtn.disabled = false;
+            if (typeof onDone === 'function') onDone();
             return;
           }
 
@@ -641,6 +642,7 @@
             if (isCancelled()) {
               loadingCats = false;
               loadCatsBtn.disabled = false;
+              newGameBtn.disabled = preloadedUrls.length < PAIR_COUNT;
             }
           });
         }
@@ -651,7 +653,7 @@
       function startNewGame() {
         if (preloadedUrls.length < PAIR_COUNT) {
           // No images preloaded yet — fetch them first, then start.
-          loadCats();
+          loadCats(startNewGame);
           return;
         }
         resetState();
