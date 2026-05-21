@@ -520,7 +520,6 @@
       }
 
       function loadCats(onDone) {
-        if (loadingCats) return;
         loadingCats = true;
         newGameBtn.disabled = true;
         renderLoading('Loading cat 1/' + PAIR_COUNT + '…');
