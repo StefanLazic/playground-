@@ -260,7 +260,7 @@
   <div id="boardContainer">
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <div>Fetching 10 cats…</div>
+      <div>Loading cats…</div>
     </div>
   </div>
 
@@ -281,6 +281,9 @@
     (function () {
       const PAIR_COUNT = 10;
       const FLIP_BACK_DELAY = 900;
+      const RETRY_DELAY_MS = 5000;
+
+      let gameToken = 0;
 
       const boardContainer = document.getElementById('boardContainer');
       const movesEl = document.getElementById('moves');
@@ -317,19 +320,22 @@
       }
 
       function preloadImages(urls) {
-        return Promise.all(urls.map(url => new Promise((resolve, reject) => {
+        // Use allSettled so a single slow/failed cat doesn't kill the game.
+        return Promise.allSettled(urls.map(url => new Promise((resolve, reject) => {
           const im = new Image();
           im.onload = () => resolve(url);
           im.onerror = () => reject(new Error('Failed to load ' + url));
           im.src = url;
-        })));
+        }))).then(results => results
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value));
       }
 
-      function renderLoading() {
+      function renderLoading(message) {
         boardContainer.innerHTML =
           '<div class="loading">' +
           '<div class="spinner"></div>' +
-          '<div>Fetching 10 cats…</div>' +
+          '<div>' + (message || 'Loading cats…') + '</div>' +
           '</div>';
       }
 
@@ -468,14 +474,36 @@
 
       function startNewGame() {
         resetState();
-        renderLoading();
-        const urls = buildCatUrls(PAIR_COUNT);
-        preloadImages(urls)
-          .then(renderBoard)
-          .catch(err => {
-            console.error(err);
-            renderError('Could not load cats. Check your connection.');
+        renderLoading('Loading cats…');
+        const myToken = ++gameToken;
+
+        const loaded = [];
+
+        function attempt() {
+          // Bail if a newer game was started while we were waiting.
+          if (myToken !== gameToken) return;
+
+          const needed = PAIR_COUNT - loaded.length;
+          const urls = buildCatUrls(needed);
+          preloadImages(urls).then(newlyLoaded => {
+            if (myToken !== gameToken) return;
+
+            for (const url of newlyLoaded) loaded.push(url);
+
+            if (loaded.length >= PAIR_COUNT) {
+              renderBoard(loaded.slice(0, PAIR_COUNT));
+              return;
+            }
+
+            renderLoading(
+              'Loading cats… (' + loaded.length + '/' + PAIR_COUNT +
+              ', retrying in 5s)'
+            );
+            setTimeout(attempt, RETRY_DELAY_MS);
           });
+        }
+
+        attempt();
       }
 
       newGameBtn.addEventListener('click', startNewGame);
