@@ -66,8 +66,11 @@
       box-shadow: none;
     }
 
-    .board {
+    #boardContainer {
       width: min(640px, 100%);
+    }
+    .board {
+      width: 100%;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
@@ -186,7 +189,7 @@
     }
 
     .loading, .error {
-      width: min(640px, 100%);
+      width: 100%;
       min-height: 200px;
       display: flex;
       align-items: center;
