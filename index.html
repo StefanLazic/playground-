@@ -282,6 +282,7 @@
       const PAIR_COUNT = 10;
       const FLIP_BACK_DELAY = 900;
       const RETRY_DELAY_MS = 5000;
+      const IMAGE_LOAD_TIMEOUT_MS = 8000;
 
       let gameToken = 0;
 
@@ -321,10 +322,31 @@
 
       function preloadImages(urls) {
         // Use allSettled so a single slow/failed cat doesn't kill the game.
+        // Apply a per-image timeout so a hung request (cataas.com accepts the
+        // connection but never returns data) is treated as a failure rather
+        // than leaving the promise pending forever — otherwise the retry loop
+        // never fires and the board never renders.
         return Promise.allSettled(urls.map(url => new Promise((resolve, reject) => {
           const im = new Image();
-          im.onload = () => resolve(url);
-          im.onerror = () => reject(new Error('Failed to load ' + url));
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            im.src = '';
+            reject(new Error('Timed out loading ' + url));
+          }, IMAGE_LOAD_TIMEOUT_MS);
+          im.onload = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(url);
+          };
+          im.onerror = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error('Failed to load ' + url));
+          };
           im.src = url;
         }))).then(results => results
           .filter(r => r.status === 'fulfilled')
