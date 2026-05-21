@@ -308,25 +308,18 @@
         return arr;
       }
 
-      function buildCatUrls(count) {
-        // Each URL is unique thanks to the random query param, so the browser
-        // will cache it and both cards in a pair show the exact same image.
-        const urls = [];
-        for (let i = 0; i < count; i++) {
-          const unique = Date.now() + '-' + i + '-' +
-                         Math.random().toString(36).slice(2);
-          urls.push('https://cataas.com/cat?width=300&height=300&random=' + unique);
-        }
-        return urls;
+      function buildCatUrl() {
+        // The random query param makes each URL unique so the browser caches
+        // it and both cards in a pair show the exact same image.
+        const unique = Date.now() + '-' + Math.random().toString(36).slice(2);
+        return 'https://cataas.com/cat?width=300&height=300&random=' + unique;
       }
 
-      function preloadImages(urls) {
-        // Use allSettled so a single slow/failed cat doesn't kill the game.
-        // Apply a per-image timeout so a hung request (cataas.com accepts the
-        // connection but never returns data) is treated as a failure rather
-        // than leaving the promise pending forever — otherwise the retry loop
-        // never fires and the board never renders.
-        return Promise.allSettled(urls.map(url => new Promise((resolve, reject) => {
+      function loadImage(url) {
+        // Load a single image with a timeout so a hung request (cataas.com
+        // accepts the connection but never returns data) is treated as a
+        // failure rather than leaving the promise pending forever.
+        return new Promise((resolve, reject) => {
           const im = new Image();
           let settled = false;
           const timer = setTimeout(() => {
@@ -348,9 +341,42 @@
             reject(new Error('Failed to load ' + url));
           };
           im.src = url;
-        }))).then(results => results
-          .filter(r => r.status === 'fulfilled')
-          .map(r => r.value));
+        });
+      }
+
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      // Fetch a single cat image, retrying indefinitely until it loads.
+      // `isCancelled` lets the caller bail out (e.g. when a new game starts).
+      // `onAttemptFail` is invoked after each failed try so the UI can update.
+      function fetchOneCat(isCancelled, onAttemptFail) {
+        return new Promise((resolve, reject) => {
+          let attempt = 0;
+          const tryOnce = () => {
+            if (isCancelled()) {
+              reject(new Error('cancelled'));
+              return;
+            }
+            attempt++;
+            loadImage(buildCatUrl()).then(url => {
+              if (isCancelled()) {
+                reject(new Error('cancelled'));
+                return;
+              }
+              resolve(url);
+            }).catch(() => {
+              if (isCancelled()) {
+                reject(new Error('cancelled'));
+                return;
+              }
+              if (onAttemptFail) onAttemptFail(attempt);
+              delay(RETRY_DELAY_MS).then(tryOnce);
+            });
+          };
+          tryOnce();
+        });
       }
 
       function renderLoading(message) {
@@ -496,36 +522,41 @@
 
       function startNewGame() {
         resetState();
-        renderLoading('Loading cats…');
+        renderLoading('Loading cats… (0/' + PAIR_COUNT + ')');
         const myToken = ++gameToken;
+        const isCancelled = () => myToken !== gameToken;
 
         const loaded = [];
 
-        function attempt() {
-          // Bail if a newer game was started while we were waiting.
-          if (myToken !== gameToken) return;
+        function loadNext() {
+          if (isCancelled()) return;
 
-          const needed = PAIR_COUNT - loaded.length;
-          const urls = buildCatUrls(needed);
-          preloadImages(urls).then(newlyLoaded => {
-            if (myToken !== gameToken) return;
+          if (loaded.length >= PAIR_COUNT) {
+            renderBoard(loaded);
+            return;
+          }
 
-            for (const url of newlyLoaded) loaded.push(url);
+          const index = loaded.length + 1;
+          renderLoading(
+            'Loading cat ' + index + '/' + PAIR_COUNT + '…'
+          );
 
-            if (loaded.length >= PAIR_COUNT) {
-              renderBoard(loaded.slice(0, PAIR_COUNT));
-              return;
-            }
-
+          fetchOneCat(isCancelled, (attempt) => {
+            if (isCancelled()) return;
             renderLoading(
-              'Loading cats… (' + loaded.length + '/' + PAIR_COUNT +
-              ', retrying in 5s)'
+              'Loading cat ' + index + '/' + PAIR_COUNT +
+              '… (attempt ' + attempt + ' failed, retrying in 5s)'
             );
-            setTimeout(attempt, RETRY_DELAY_MS);
+          }).then(url => {
+            if (isCancelled()) return;
+            loaded.push(url);
+            loadNext();
+          }).catch(() => {
+            // Only reachable on cancellation; safe to ignore.
           });
         }
 
-        attempt();
+        loadNext();
       }
 
       newGameBtn.addEventListener('click', startNewGame);
