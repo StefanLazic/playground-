@@ -3,72 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Random Cat Generator 🐱</title>
+  <title>Cat Memory Game 🐱</title>
   <style>
     * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
     body {
-      margin: 0;
       min-height: 100vh;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      color: #333;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
-      color: #333;
+      padding: 20px 16px 40px;
     }
     h1 {
-      margin: 0 0 8px;
-      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      margin: 0 0 4px;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
       text-align: center;
     }
     p.subtitle {
-      margin: 0 0 24px;
+      margin: 0 0 16px;
       opacity: 0.8;
       text-align: center;
     }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-      padding: 16px;
-      width: min(560px, 100%);
+
+    .toolbar {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-    .image-wrapper {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      background: #f3f3f3;
-      border-radius: 12px;
-      overflow: hidden;
-      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
       align-items: center;
       justify-content: center;
-      position: relative;
+      margin-bottom: 16px;
     }
-    .image-wrapper img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .status {
-      position: absolute;
+    .stat {
+      background: rgba(255, 255, 255, 0.7);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 600;
       font-size: 0.95rem;
-      color: #777;
+      min-width: 90px;
+      text-align: center;
     }
     button {
       appearance: none;
       border: none;
       background: #ff6f61;
       color: white;
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 600;
-      padding: 12px 24px;
+      padding: 10px 20px;
       border-radius: 999px;
       cursor: pointer;
       transition: transform 0.1s ease, background 0.2s ease;
@@ -81,24 +65,212 @@
       cursor: not-allowed;
       box-shadow: none;
     }
+
+    .board {
+      width: min(640px, 100%);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 520px) {
+      .board { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 360px) {
+      .board { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .card {
+      aspect-ratio: 1 / 1;
+      perspective: 800px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.5s ease;
+    }
+    .card.flipped .card-inner,
+    .card.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-front {
+      background: linear-gradient(135deg, #ff6f61, #ffb199);
+      color: white;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 700;
+      user-select: none;
+    }
+    .card-back {
+      background: #fff;
+      transform: rotateY(180deg);
+    }
+    .card-back img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card.matched .card-inner {
+      animation: pop 0.5s ease;
+    }
+    .card.matched .card-face {
+      box-shadow: 0 0 0 3px #4caf50, 0 4px 12px rgba(76, 175, 80, 0.4);
+    }
+    @keyframes pop {
+      0% { transform: rotateY(180deg) scale(1); }
+      50% { transform: rotateY(180deg) scale(1.08); }
+      100% { transform: rotateY(180deg) scale(1); }
+    }
+    .card.shake .card-inner {
+      animation: shake 0.4s ease;
+    }
+    @keyframes shake {
+      0%, 100% { transform: rotateY(180deg) translateX(0); }
+      25% { transform: rotateY(180deg) translateX(-6px); }
+      75% { transform: rotateY(180deg) translateX(6px); }
+    }
+
+    .loading, .error {
+      width: min(640px, 100%);
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 16px;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid rgba(255, 111, 97, 0.25);
+      border-top-color: #ff6f61;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Win overlay */
+    .win-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+    .win-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .win-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px 28px;
+      text-align: center;
+      max-width: 90%;
+      width: 360px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      transform: scale(0.7);
+      transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .win-overlay.show .win-card { transform: scale(1); }
+    .win-card h2 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      background: linear-gradient(90deg, #ff6f61, #ffb199, #ff6f61);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 2s linear infinite;
+    }
+    @keyframes shimmer {
+      to { background-position: 200% center; }
+    }
+    .win-card p { margin: 0 0 20px; opacity: 0.85; }
+    .win-emoji {
+      font-size: 4rem;
+      animation: bounce 1s ease infinite;
+      display: inline-block;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    /* Confetti */
+    .confetti {
+      position: fixed;
+      top: -10px;
+      width: 10px;
+      height: 14px;
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: 11;
+      animation: fall linear forwards;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(110vh) rotate(720deg);
+        opacity: 0.5;
+      }
+    }
+
     footer {
-      margin-top: 20px;
+      margin-top: 24px;
       font-size: 0.85rem;
       opacity: 0.7;
+      text-align: center;
     }
     footer a { color: inherit; }
   </style>
 </head>
 <body>
-  <h1>Random Cat Generator 🐱</h1>
-  <p class="subtitle">Click the button to summon a new feline friend.</p>
+  <h1>Cat Memory Game 🐱</h1>
+  <p class="subtitle">Find all 10 matching pairs of cats!</p>
 
-  <div class="card">
-    <div class="image-wrapper" id="imageWrapper">
-      <span class="status" id="status">Loading…</span>
-      <img id="catImage" alt="A random cat" style="display:none;" />
+  <div class="toolbar">
+    <div class="stat">Moves: <span id="moves">0</span></div>
+    <div class="stat">Pairs: <span id="pairs">0</span>/10</div>
+    <button id="newGameBtn" type="button">New Game</button>
+  </div>
+
+  <div id="boardContainer">
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div>Fetching 10 cats…</div>
     </div>
-    <button id="newCatBtn" type="button">New Cat</button>
+  </div>
+
+  <div class="win-overlay" id="winOverlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="win-card">
+      <div class="win-emoji">🎉</div>
+      <h2 id="winTitle">You Win!</h2>
+      <p>You matched all 10 pairs in <span id="winMoves">0</span> moves.</p>
+      <button id="playAgainBtn" type="button">Play Again</button>
+    </div>
   </div>
 
   <footer>
@@ -107,36 +279,209 @@
 
   <script>
     (function () {
-      const img = document.getElementById('catImage');
-      const status = document.getElementById('status');
-      const btn = document.getElementById('newCatBtn');
+      const PAIR_COUNT = 10;
+      const FLIP_BACK_DELAY = 900;
 
-      function loadNewCat() {
-        btn.disabled = true;
-        status.textContent = 'Loading…';
-        status.style.display = 'block';
-        img.style.display = 'none';
+      const boardContainer = document.getElementById('boardContainer');
+      const movesEl = document.getElementById('moves');
+      const pairsEl = document.getElementById('pairs');
+      const newGameBtn = document.getElementById('newGameBtn');
+      const winOverlay = document.getElementById('winOverlay');
+      const winMovesEl = document.getElementById('winMoves');
+      const playAgainBtn = document.getElementById('playAgainBtn');
 
-        // Cache-busting query param ensures a fresh random image each click.
-        const url = 'https://cataas.com/cat?random=' + Date.now() +
-                    '-' + Math.random().toString(36).slice(2);
+      let firstCard = null;
+      let secondCard = null;
+      let lockBoard = false;
+      let moves = 0;
+      let matchedPairs = 0;
 
-        const tempImg = new Image();
-        tempImg.onload = function () {
-          img.src = tempImg.src;
-          img.style.display = 'block';
-          status.style.display = 'none';
-          btn.disabled = false;
-        };
-        tempImg.onerror = function () {
-          status.textContent = 'Could not load cat 😿 Try again.';
-          btn.disabled = false;
-        };
-        tempImg.src = url;
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
       }
 
-      btn.addEventListener('click', loadNewCat);
-      loadNewCat();
+      function buildCatUrls(count) {
+        // Each URL is unique thanks to the random query param, so the browser
+        // will cache it and both cards in a pair show the exact same image.
+        const urls = [];
+        for (let i = 0; i < count; i++) {
+          const unique = Date.now() + '-' + i + '-' +
+                         Math.random().toString(36).slice(2);
+          urls.push('https://cataas.com/cat?width=300&height=300&random=' + unique);
+        }
+        return urls;
+      }
+
+      function preloadImages(urls) {
+        return Promise.all(urls.map(url => new Promise((resolve, reject) => {
+          const im = new Image();
+          im.onload = () => resolve(url);
+          im.onerror = () => reject(new Error('Failed to load ' + url));
+          im.src = url;
+        })));
+      }
+
+      function renderLoading() {
+        boardContainer.innerHTML =
+          '<div class="loading">' +
+          '<div class="spinner"></div>' +
+          '<div>Fetching 10 cats…</div>' +
+          '</div>';
+      }
+
+      function renderError(message) {
+        boardContainer.innerHTML =
+          '<div class="error">' +
+          '<div>😿 ' + message + '</div>' +
+          '<button id="retryBtn" type="button">Retry</button>' +
+          '</div>';
+        document.getElementById('retryBtn')
+          .addEventListener('click', startNewGame);
+      }
+
+      function renderBoard(urls) {
+        // Duplicate each URL to make 10 pairs, then shuffle.
+        const deck = shuffle(urls.concat(urls).slice());
+
+        const board = document.createElement('div');
+        board.className = 'board';
+
+        deck.forEach((url, index) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.dataset.url = url;
+          card.dataset.index = String(index);
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', 'Hidden cat card');
+          card.tabIndex = 0;
+
+          card.innerHTML =
+            '<div class="card-inner">' +
+              '<div class="card-face card-front">?</div>' +
+              '<div class="card-face card-back">' +
+                '<img src="' + url + '" alt="A cat" />' +
+              '</div>' +
+            '</div>';
+
+          card.addEventListener('click', () => onCardClick(card));
+          card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onCardClick(card);
+            }
+          });
+
+          board.appendChild(card);
+        });
+
+        boardContainer.innerHTML = '';
+        boardContainer.appendChild(board);
+      }
+
+      function onCardClick(card) {
+        if (lockBoard) return;
+        if (card.classList.contains('flipped') ||
+            card.classList.contains('matched')) return;
+        if (card === firstCard) return;
+
+        card.classList.add('flipped');
+
+        if (!firstCard) {
+          firstCard = card;
+          return;
+        }
+
+        secondCard = card;
+        moves++;
+        movesEl.textContent = String(moves);
+
+        if (firstCard.dataset.url === secondCard.dataset.url) {
+          // Match!
+          firstCard.classList.add('matched');
+          secondCard.classList.add('matched');
+          firstCard = null;
+          secondCard = null;
+          matchedPairs++;
+          pairsEl.textContent = String(matchedPairs);
+
+          if (matchedPairs === PAIR_COUNT) {
+            setTimeout(showWin, 600);
+          }
+        } else {
+          // Miss — flip both back after a short delay.
+          lockBoard = true;
+          const a = firstCard;
+          const b = secondCard;
+          a.classList.add('shake');
+          b.classList.add('shake');
+          setTimeout(() => {
+            a.classList.remove('flipped', 'shake');
+            b.classList.remove('flipped', 'shake');
+            firstCard = null;
+            secondCard = null;
+            lockBoard = false;
+          }, FLIP_BACK_DELAY);
+        }
+      }
+
+      function showWin() {
+        winMovesEl.textContent = String(moves);
+        winOverlay.classList.add('show');
+        launchConfetti();
+      }
+
+      function hideWin() {
+        winOverlay.classList.remove('show');
+      }
+
+      function launchConfetti() {
+        const colors = ['#ff6f61', '#ffb199', '#ffd54f', '#4caf50',
+                        '#42a5f5', '#ab47bc', '#ffecd2'];
+        const count = 80;
+        for (let i = 0; i < count; i++) {
+          const c = document.createElement('div');
+          c.className = 'confetti';
+          c.style.left = Math.random() * 100 + 'vw';
+          c.style.background = colors[Math.floor(Math.random() * colors.length)];
+          c.style.animationDuration = (2 + Math.random() * 2) + 's';
+          c.style.animationDelay = (Math.random() * 0.5) + 's';
+          c.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+          document.body.appendChild(c);
+          setTimeout(() => c.remove(), 4500);
+        }
+      }
+
+      function resetState() {
+        firstCard = null;
+        secondCard = null;
+        lockBoard = false;
+        moves = 0;
+        matchedPairs = 0;
+        movesEl.textContent = '0';
+        pairsEl.textContent = '0';
+        hideWin();
+      }
+
+      function startNewGame() {
+        resetState();
+        renderLoading();
+        const urls = buildCatUrls(PAIR_COUNT);
+        preloadImages(urls)
+          .then(renderBoard)
+          .catch(err => {
+            console.error(err);
+            renderError('Could not load cats. Check your connection.');
+          });
+      }
+
+      newGameBtn.addEventListener('click', startNewGame);
+      playAgainBtn.addEventListener('click', startNewGame);
+
+      startNewGame();
     })();
   </script>
 </body>
