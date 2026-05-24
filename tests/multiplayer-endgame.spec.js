@@ -6,6 +6,7 @@ test.describe('Multiplayer End Game', () => {
     await mockCatApi(page);
     await page.goto('/');
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#p1Name').fill('Alice');
     await page.locator('#p2Name').fill('Bob');
     await page.locator('#startGameBtn').click();

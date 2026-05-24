@@ -9,6 +9,7 @@ test.describe('Two-Player Toolbar', () => {
 
   test('2P game shows both player names with scores, P1 highlighted', async ({ page }) => {
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#p1Name').fill('Alice');
     await page.locator('#p2Name').fill('Bob');
     await page.locator('#startGameBtn').click();
@@ -38,6 +39,7 @@ test.describe('Two-Player Toolbar', () => {
 
   test('New Game button is present in 2P mode', async ({ page }) => {
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#startGameBtn').click();
     await expect(page.locator('#newGameBtn')).toBeVisible();
   });
