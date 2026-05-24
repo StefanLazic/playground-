@@ -124,14 +124,44 @@ This plan breaks the multiplayer feature into 6 sequential phases. Each phase is
 
 ---
 
+## Phase 7: Playwright E2E Test Suite
+
+**Goal:** Add automated end-to-end tests so every phase can be validated without manual testing.
+
+### Tasks
+1. Run `npm init -y` to create `package.json`.
+2. Install Playwright: `npm install -D @playwright/test`.
+3. Create `playwright.config.js` — configure base URL to serve `index.html` locally (use Playwright's built-in `webServer` option with a simple static server like `npx serve .`).
+4. Create test helper (`tests/helpers.js`) with:
+   - Route interception to mock `cataas.com` with local placeholder images.
+   - Utility to click through card pairs deterministically (read `data-url` attributes).
+5. Write test suites per design doc §8.3:
+   - `tests/mode-select.spec.js` — mode selection screen behavior.
+   - `tests/player-setup.spec.js` — name inputs and defaults.
+   - `tests/single-player.spec.js` — full 1P regression (unchanged behavior).
+   - `tests/multiplayer-turns.spec.js` — turn alternation logic.
+   - `tests/multiplayer-scoring.spec.js` — per-player scoring and card colors.
+   - `tests/multiplayer-endgame.spec.js` — win/draw overlays.
+   - `tests/navigation.spec.js` — New Game / Play Again routing.
+6. Add `.github/workflows/test.yml` for CI (run tests on push/PR).
+7. Add `"test": "npx playwright test"` script to `package.json`.
+
+### Acceptance Criteria
+- `npm test` runs all E2E tests and passes.
+- Tests complete in < 30s (no real network calls).
+- CI workflow runs on every push and PR.
+- 1P regression suite catches any breakage from multiplayer changes.
+
+---
+
 ## Implementation Order & Dependencies
 
 ```
-Phase 1 ──▶ Phase 2 ──▶ Phase 3 ──▶ Phase 4 ──▶ Phase 5 ──▶ Phase 6
-(screen)    (names)      (toolbar)   (turns)     (endgame)   (navigation)
+Phase 1 ──▶ Phase 2 ──▶ Phase 3 ──▶ Phase 4 ──▶ Phase 5 ──▶ Phase 6 ──▶ Phase 7
+(screen)    (names)      (toolbar)   (turns)     (endgame)   (navigation) (tests)
 ```
 
-Each phase depends on the previous one. Phase 4 is the most complex and carries the highest regression risk for single-player mode.
+Each phase depends on the previous one. Phase 4 is the most complex and carries the highest regression risk for single-player mode. Phase 7 (tests) can optionally be started earlier — a 1P regression suite can be written after Phase 1 to catch breakages immediately.
 
 ---
 
@@ -139,6 +169,7 @@ Each phase depends on the previous one. Phase 4 is the most complex and carries 
 
 1. **1P isolation:** The single-player code path must remain untouched. Branch on `gameMode` early in shared functions.
 2. **Single file:** All HTML, CSS, and JS stay in `index.html`.
-3. **No new dependencies:** Pure vanilla JS/CSS.
+3. **Dev dependencies only:** Playwright is a devDependency for testing — the shipped game remains dependency-free.
 4. **Progressive enhancement:** Each phase leaves the game in a working state.
 5. **Minimal refactoring:** Extend existing functions rather than rewriting them.
+6. **Test coverage:** Every phase's acceptance criteria maps to at least one Playwright test case. Tests use network mocking for deterministic, fast execution.

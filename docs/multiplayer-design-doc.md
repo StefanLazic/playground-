@@ -215,27 +215,80 @@ Both modes use the identical `loadCats()` → `fetchOneCat()` pipeline. No chang
 
 ## 8. Testing Strategy
 
-Since the project has no test framework, validation is manual:
+Automated end-to-end tests using **Playwright** (`@playwright/test`). Playwright interacts with the game in a real browser, simulating user clicks and verifying DOM state — ideal for this interaction-heavy, single-file project.
 
-| Test Case | Steps | Expected |
+### 8.1 Setup
+
+- `npm init -y` + `npm install -D @playwright/test`
+- `npx playwright install` (downloads browser binaries)
+- Test files live in `tests/` directory
+- `npx playwright test` runs the full suite
+
+### 8.2 Network Mocking
+
+All tests intercept `cataas.com` requests via Playwright's `page.route()` and respond with local placeholder images. This makes tests:
+- **Fast** — no network latency
+- **Deterministic** — same images every run
+- **Offline-capable** — CI doesn't depend on an external API
+
+### 8.3 Test Suites
+
+| Suite | File | Covers |
 |---|---|---|
-| 1P unchanged | Select 1 Player → play to win | Same behavior as before multiplayer |
-| 2P basic flow | Select 2P → enter names → play | Turns alternate on miss, stats update per player |
-| 2P match streak | Active player matches 3 in a row | Same player continues, scores 3 |
-| 2P turn switch | Miss after 0 or more matches | Other player becomes active, toolbar updates |
-| 2P draw | Each player matches exactly 5 | Draw overlay shown, no confetti |
-| 2P win | One player gets majority | Win overlay with winner name and confetti |
-| New Game (2P) | Click New Game during 2P | Resets board, same players, P1 starts |
-| Play Again (2P) | Click Play Again on end overlay | Returns to mode selection |
-| Empty names | Leave both blank, start game | Defaults to "Player 1" / "Player 2" |
-| Same names | Both enter "Cat" | Works fine, colors distinguish |
+| Mode Selection | `tests/mode-select.spec.js` | Page load shows mode screen; 1P button starts game; 2P button reveals inputs |
+| Player Setup | `tests/player-setup.spec.js` | Name input, defaults for blank names, Enter key shortcut |
+| 1P Regression | `tests/single-player.spec.js` | Full 1P flow unchanged — moves, pairs, win overlay |
+| 2P Turns | `tests/multiplayer-turns.spec.js` | Turn alternation on miss, active player keeps turn on match, toolbar updates |
+| 2P Scoring | `tests/multiplayer-scoring.spec.js` | Per-player pair count, matched card colors (data-player attribute) |
+| 2P End Game | `tests/multiplayer-endgame.spec.js` | Win overlay (confetti, winner color), draw overlay (no confetti, neutral) |
+| Navigation | `tests/navigation.spec.js` | New Game behavior per mode, Play Again routing, mode transitions |
+
+### 8.4 Key Test Cases
+
+| Test Case | Assertion |
+|---|---|
+| 1P unchanged | Select 1 Player → play to win → verify "You Win!" overlay with move count |
+| 2P basic flow | Select 2P → enter names → play → verify turns alternate on miss, stats update |
+| 2P match streak | Active player matches 3 in a row → same player stays active, scores 3 |
+| 2P turn switch | Miss → other player's stat block gets `.active` class, toolbar opacity changes |
+| 2P draw | Each player matches exactly 5 → overlay shows "It's a Draw!", no confetti elements in DOM |
+| 2P win | One player gets majority → overlay shows "[Name] Wins!", confetti elements present |
+| New Game (2P) | Click New Game during 2P → board resets, same players, P1 active |
+| Play Again (2P) | Click Play Again on end overlay → mode selection screen visible |
+| Empty names | Leave both blank, start game → toolbar shows "Player 1" / "Player 2" |
+| Same names | Both enter "Cat" → works, cards distinguished by `data-player` color |
+
+### 8.5 CI Integration
+
+Tests run in GitHub Actions on every push/PR:
+
+```yaml
+# .github/workflows/test.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
 
 ---
 
 ## 9. Performance & Compatibility
 
 - No additional network requests beyond cat image loading.
-- No new dependencies or libraries.
+- **Dev dependency only:** Playwright is a devDependency — zero impact on the shipped `index.html`.
 - CSS transitions for turn indicator are lightweight (opacity + background).
 - Works in all modern browsers (same baseline as current game).
 - Single-file approach means no bundle size or loading concerns.
