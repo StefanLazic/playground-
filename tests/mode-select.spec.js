@@ -31,6 +31,9 @@ test.describe('Mode Selection Screen', () => {
 
   test('clicking 2 Players shows name inputs', async ({ page }) => {
     await page.locator('#mode2pBtn').click();
+    await expect(page.locator('#nameInputs')).toBeHidden();
+    await expect(page.locator('#modePlayBtn')).toBeVisible();
+    await page.locator('#modePlayBtn').click();
     await expect(page.locator('#nameInputs')).toBeVisible();
     // Game should NOT start yet
     await expect(page.locator('.toolbar')).toBeHidden();

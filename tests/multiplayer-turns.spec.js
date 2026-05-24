@@ -6,6 +6,7 @@ test.describe('Multiplayer Turns', () => {
     await mockCatApi(page);
     await page.goto('/');
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#p1Name').fill('Alice');
     await page.locator('#p2Name').fill('Bob');
     await page.locator('#startGameBtn').click();
@@ -36,6 +37,8 @@ test.describe('Multiplayer Turns', () => {
     const p2Stat = page.locator('.player-stat[data-player="2"]');
     await expect(p1Stat).toHaveClass(/inactive/);
     await expect(p2Stat).toHaveClass(/active/);
+    await expect(p1Stat.locator('.turn-indicator')).toBeHidden();
+    await expect(p2Stat.locator('.turn-indicator')).toBeVisible();
   });
 
   test('matched cards show active player color via data-player attribute', async ({ page }) => {

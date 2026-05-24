@@ -9,6 +9,7 @@ test.describe('Navigation', () => {
 
   test('New Game during 2P resets board and scores, keeps same players, P1 starts', async ({ page }) => {
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#p1Name').fill('Alice');
     await page.locator('#p2Name').fill('Bob');
     await page.locator('#startGameBtn').click();
@@ -45,6 +46,7 @@ test.describe('Navigation', () => {
 
   test('Play Again in 2P end overlay returns to mode selection', async ({ page }) => {
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
     await page.locator('#startGameBtn').click();
     await expect(page.locator('.card').first()).toBeVisible({ timeout: 15000 });
 

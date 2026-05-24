@@ -17,6 +17,9 @@
       align-items: center;
       padding: 20px 16px 40px;
     }
+    [hidden] {
+      display: none !important;
+    }
     h1 {
       margin: 0 0 4px;
       font-size: clamp(1.6rem, 4vw, 2.4rem);
@@ -262,6 +265,13 @@
       display: flex;
       gap: 12px;
     }
+    .mode-buttons button.selected {
+      box-shadow: 0 0 0 3px rgba(255, 111, 97, 0.35), 0 6px 16px rgba(255, 111, 97, 0.3);
+    }
+    #modePlayBtn {
+      margin-top: 4px;
+      min-width: 140px;
+    }
     #nameInputs {
       display: flex;
       flex-direction: column;
@@ -288,7 +298,8 @@
       gap: 8px;
     }
     .player-stat {
-      transition: opacity 0.3s ease, background 0.3s ease;
+      border: 2px solid transparent;
+      transition: opacity 0.3s ease, background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
     .player-stat[data-player="1"] {
       border-left: 3px solid #ff6f61;
@@ -299,9 +310,33 @@
     .player-stat.active {
       opacity: 1;
       font-weight: 700;
+      transform: translateY(-1px) scale(1.03);
     }
     .player-stat.inactive {
       opacity: 0.5;
+      filter: saturate(0.65);
+    }
+    .player-stat[data-player="1"].active {
+      background: rgba(255, 111, 97, 0.2);
+      border-color: #ff6f61;
+      box-shadow: 0 0 0 3px rgba(255, 111, 97, 0.35);
+    }
+    .player-stat[data-player="2"].active {
+      background: rgba(66, 165, 245, 0.2);
+      border-color: #42a5f5;
+      box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.35);
+    }
+    .turn-indicator {
+      display: none;
+      margin-left: 8px;
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      opacity: 0.9;
+    }
+    .player-stat.active .turn-indicator {
+      display: inline-block;
     }
 
     /* Per-player matched card borders */
@@ -331,6 +366,7 @@
       <button id="mode1pBtn">1 Player</button>
       <button id="mode2pBtn">2 Players</button>
     </div>
+    <button id="modePlayBtn" hidden>Play</button>
     <div id="nameInputs" hidden>
       <input id="p1Name" type="text" placeholder="Player 1" aria-label="Player 1 name" />
       <input id="p2Name" type="text" placeholder="Player 2" aria-label="Player 2 name" />
@@ -378,6 +414,7 @@
       const modeSelect = document.getElementById('modeSelect');
       const mode1pBtn = document.getElementById('mode1pBtn');
       const mode2pBtn = document.getElementById('mode2pBtn');
+      const modePlayBtn = document.getElementById('modePlayBtn');
       const nameInputs = document.getElementById('nameInputs');
       const p1NameInput = document.getElementById('p1Name');
       const p2NameInput = document.getElementById('p2Name');
@@ -385,6 +422,7 @@
       const toolbar = document.querySelector('.toolbar');
 
       let gameMode = null; // '1p' | '2p' | null
+      let selectedMode = null; // '1p' | '2p' | null
 
       // Player data (2P only)
       let activePlayer = 1;
@@ -806,6 +844,10 @@
       function showModeSelect() {
         modeSelect.style.display = '';
         nameInputs.hidden = true;
+        modePlayBtn.hidden = true;
+        mode1pBtn.classList.remove('selected');
+        mode2pBtn.classList.remove('selected');
+        selectedMode = null;
         toolbar.style.display = 'none';
         boardContainer.style.display = 'none';
         gameMode = null;
@@ -819,7 +861,17 @@
       });
 
       mode2pBtn.addEventListener('click', () => {
+        selectedMode = '2p';
+        mode1pBtn.classList.remove('selected');
+        mode2pBtn.classList.add('selected');
+        nameInputs.hidden = true;
+        modePlayBtn.hidden = false;
+      });
+
+      modePlayBtn.addEventListener('click', () => {
+        if (selectedMode !== '2p') return;
         nameInputs.hidden = false;
+        p1NameInput.focus();
       });
 
       function start2pGame() {
@@ -852,10 +904,10 @@
           toolbar.classList.add('toolbar-2p');
           toolbar.innerHTML =
             '<div class="stat player-stat active" data-player="1">' +
-              '<span class="player-name">' + escapeHtml(players[0].name) + '</span>: <span class="player-pairs">0</span> pairs' +
+              '<span class="player-name">' + escapeHtml(players[0].name) + '</span>: <span class="player-pairs">0</span> pairs <span class="turn-indicator">Turn</span>' +
             '</div>' +
             '<div class="stat player-stat inactive" data-player="2">' +
-              '<span class="player-name">' + escapeHtml(players[1].name) + '</span>: <span class="player-pairs">0</span> pairs' +
+              '<span class="player-name">' + escapeHtml(players[1].name) + '</span>: <span class="player-pairs">0</span> pairs <span class="turn-indicator">Turn</span>' +
             '</div>' +
             '<button id="newGameBtn" type="button">New Game</button>';
           toolbar.querySelector('#newGameBtn').addEventListener('click', startNewGame);

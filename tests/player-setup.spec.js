@@ -6,6 +6,7 @@ test.describe('Player Setup', () => {
     await mockCatApi(page);
     await page.goto('/');
     await page.locator('#mode2pBtn').click();
+    await page.locator('#modePlayBtn').click();
   });
 
   test('entering names and clicking Start Game stores player data', async ({ page }) => {
