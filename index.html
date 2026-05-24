@@ -241,6 +241,77 @@
       }
     }
 
+    /* Mode selection */
+    #modeSelect {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.7);
+      padding: 32px 28px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 16px;
+    }
+    #modeSelect p {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .mode-buttons {
+      display: flex;
+      gap: 12px;
+    }
+    #nameInputs {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    #nameInputs input {
+      padding: 8px 14px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 200px;
+    }
+    #nameInputs input#p1Name {
+      border-left: 4px solid #ff6f61;
+    }
+    #nameInputs input#p2Name {
+      border-left: 4px solid #42a5f5;
+    }
+
+    /* Two-player toolbar */
+    .toolbar-2p {
+      gap: 8px;
+    }
+    .player-stat {
+      transition: opacity 0.3s ease, background 0.3s ease;
+    }
+    .player-stat[data-player="1"] {
+      border-left: 3px solid #ff6f61;
+    }
+    .player-stat[data-player="2"] {
+      border-left: 3px solid #42a5f5;
+    }
+    .player-stat.active {
+      opacity: 1;
+      font-weight: 700;
+    }
+    .player-stat.inactive {
+      opacity: 0.5;
+    }
+
+    /* Per-player matched card borders */
+    .card.matched[data-player="1"] .card-face {
+      box-shadow: 0 0 0 3px #ff6f61, 0 4px 12px rgba(255, 111, 97, 0.4);
+    }
+    .card.matched[data-player="2"] .card-face {
+      box-shadow: 0 0 0 3px #42a5f5, 0 4px 12px rgba(66, 165, 245, 0.4);
+    }
+
     footer {
       margin-top: 24px;
       font-size: 0.85rem;
@@ -254,13 +325,26 @@
   <h1>Cat Memory Game 🐱</h1>
   <p class="subtitle">Find all 10 matching pairs of cats!</p>
 
-  <div class="toolbar">
+  <div id="modeSelect">
+    <p>Choose your game mode</p>
+    <div class="mode-buttons">
+      <button id="mode1pBtn">1 Player</button>
+      <button id="mode2pBtn">2 Players</button>
+    </div>
+    <div id="nameInputs" hidden>
+      <input id="p1Name" type="text" placeholder="Player 1" aria-label="Player 1 name" />
+      <input id="p2Name" type="text" placeholder="Player 2" aria-label="Player 2 name" />
+      <button id="startGameBtn">Start Game</button>
+    </div>
+  </div>
+
+  <div class="toolbar" style="display:none;">
     <div class="stat">Moves: <span id="moves">0</span></div>
     <div class="stat">Pairs: <span id="pairs">0</span>/10</div>
     <button id="newGameBtn" type="button">New Game</button>
   </div>
 
-  <div id="boardContainer"></div>
+  <div id="boardContainer" style="display:none;"></div>
 
   <div class="win-overlay" id="winOverlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
     <div class="win-card">
@@ -285,12 +369,29 @@
       let gameToken = 0;
 
       const boardContainer = document.getElementById('boardContainer');
-      const movesEl = document.getElementById('moves');
-      const pairsEl = document.getElementById('pairs');
       const newGameBtn = document.getElementById('newGameBtn');
       const winOverlay = document.getElementById('winOverlay');
       const winMovesEl = document.getElementById('winMoves');
       const playAgainBtn = document.getElementById('playAgainBtn');
+
+      // Mode selection elements
+      const modeSelect = document.getElementById('modeSelect');
+      const mode1pBtn = document.getElementById('mode1pBtn');
+      const mode2pBtn = document.getElementById('mode2pBtn');
+      const nameInputs = document.getElementById('nameInputs');
+      const p1NameInput = document.getElementById('p1Name');
+      const p2NameInput = document.getElementById('p2Name');
+      const startGameBtn = document.getElementById('startGameBtn');
+      const toolbar = document.querySelector('.toolbar');
+
+      let gameMode = null; // '1p' | '2p' | null
+
+      // Player data (2P only)
+      let activePlayer = 1;
+      let players = [
+        { name: 'Player 1', pairs: 0, color: '#ff6f61' },
+        { name: 'Player 2', pairs: 0, color: '#42a5f5' }
+      ];
 
       let firstCard = null;
       let secondCard = null;
@@ -449,42 +550,151 @@
         }
 
         secondCard = card;
-        moves++;
-        movesEl.textContent = String(moves);
 
-        if (firstCard.dataset.url === secondCard.dataset.url) {
-          // Match!
-          firstCard.classList.add('matched');
-          secondCard.classList.add('matched');
-          firstCard = null;
-          secondCard = null;
-          matchedPairs++;
-          pairsEl.textContent = String(matchedPairs);
-
-          if (matchedPairs === PAIR_COUNT) {
-            setTimeout(showWin, 600);
-          }
-        } else {
-          // Miss — flip both back after a short delay.
-          lockBoard = true;
-          const a = firstCard;
-          const b = secondCard;
-          a.classList.add('shake');
-          b.classList.add('shake');
-          setTimeout(() => {
-            a.classList.remove('flipped', 'shake');
-            b.classList.remove('flipped', 'shake');
+        if (gameMode === '2p') {
+          // 2P logic
+          if (firstCard.dataset.url === secondCard.dataset.url) {
+            // Match — active player scores, keeps turn
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            firstCard.dataset.player = String(activePlayer);
+            secondCard.dataset.player = String(activePlayer);
+            firstCard.setAttribute('data-player', String(activePlayer));
+            secondCard.setAttribute('data-player', String(activePlayer));
+            players[activePlayer - 1].pairs++;
+            matchedPairs = players[0].pairs + players[1].pairs;
+            updateToolbarScores();
             firstCard = null;
             secondCard = null;
-            lockBoard = false;
-          }, FLIP_BACK_DELAY);
+            if (matchedPairs === PAIR_COUNT) {
+              setTimeout(showWin, 600);
+            }
+          } else {
+            // Miss — switch turn
+            lockBoard = true;
+            const a = firstCard;
+            const b = secondCard;
+            a.classList.add('shake');
+            b.classList.add('shake');
+            setTimeout(() => {
+              a.classList.remove('flipped', 'shake');
+              b.classList.remove('flipped', 'shake');
+              firstCard = null;
+              secondCard = null;
+              lockBoard = false;
+              switchTurn();
+            }, FLIP_BACK_DELAY);
+          }
+        } else {
+          // 1P logic
+          moves++;
+          const movesEl = document.getElementById('moves');
+          if (movesEl) movesEl.textContent = String(moves);
+
+          if (firstCard.dataset.url === secondCard.dataset.url) {
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            firstCard = null;
+            secondCard = null;
+            matchedPairs++;
+            const pairsEl = document.getElementById('pairs');
+            if (pairsEl) pairsEl.textContent = String(matchedPairs);
+
+            if (matchedPairs === PAIR_COUNT) {
+              setTimeout(showWin, 600);
+            }
+          } else {
+            lockBoard = true;
+            const a = firstCard;
+            const b = secondCard;
+            a.classList.add('shake');
+            b.classList.add('shake');
+            setTimeout(() => {
+              a.classList.remove('flipped', 'shake');
+              b.classList.remove('flipped', 'shake');
+              firstCard = null;
+              secondCard = null;
+              lockBoard = false;
+            }, FLIP_BACK_DELAY);
+          }
         }
       }
 
+      function switchTurn() {
+        activePlayer = (activePlayer === 1) ? 2 : 1;
+        updateToolbarActive();
+      }
+
+      function updateToolbarActive() {
+        const p1Stat = document.querySelector('.player-stat[data-player="1"]');
+        const p2Stat = document.querySelector('.player-stat[data-player="2"]');
+        if (!p1Stat || !p2Stat) return;
+        if (activePlayer === 1) {
+          p1Stat.classList.add('active');
+          p1Stat.classList.remove('inactive');
+          p2Stat.classList.add('inactive');
+          p2Stat.classList.remove('active');
+        } else {
+          p2Stat.classList.add('active');
+          p2Stat.classList.remove('inactive');
+          p1Stat.classList.add('inactive');
+          p1Stat.classList.remove('active');
+        }
+      }
+
+      function updateToolbarScores() {
+        const p1Pairs = document.querySelector('.player-stat[data-player="1"] .player-pairs');
+        const p2Pairs = document.querySelector('.player-stat[data-player="2"] .player-pairs');
+        if (p1Pairs) p1Pairs.textContent = String(players[0].pairs);
+        if (p2Pairs) p2Pairs.textContent = String(players[1].pairs);
+      }
+
       function showWin() {
-        winMovesEl.textContent = String(moves);
-        winOverlay.classList.add('show');
-        launchConfetti();
+        const emojiEl = document.querySelector('.win-emoji');
+        const titleEl = document.getElementById('winTitle');
+        const subtitleEl = winOverlay.querySelector('.win-card p');
+
+        if (gameMode === '2p') {
+          const p1Score = players[0].pairs;
+          const p2Score = players[1].pairs;
+
+          if (p1Score === p2Score) {
+            // Draw
+            emojiEl.textContent = '🤝';
+            titleEl.textContent = "It's a Draw!";
+            titleEl.style.background = '';
+            titleEl.style.color = '#333';
+            titleEl.style.webkitBackgroundClip = '';
+            titleEl.style.backgroundClip = '';
+            subtitleEl.textContent = p1Score + ' – ' + p2Score;
+            winOverlay.classList.add('show');
+          } else {
+            // Winner
+            const winner = p1Score > p2Score ? players[0] : players[1];
+            emojiEl.textContent = '🎉';
+            titleEl.textContent = winner.name + ' Wins!';
+            titleEl.style.background = winner.color;
+            titleEl.style.color = winner.color;
+            titleEl.style.webkitBackgroundClip = '';
+            titleEl.style.backgroundClip = '';
+            subtitleEl.textContent = players[0].pairs + ' – ' + players[1].pairs;
+            winOverlay.classList.add('show');
+            launchConfetti();
+          }
+        } else {
+          // 1P mode
+          emojiEl.textContent = '🎉';
+          titleEl.textContent = 'You Win!';
+          titleEl.style.background = '';
+          titleEl.style.color = '';
+          titleEl.style.webkitBackgroundClip = '';
+          titleEl.style.backgroundClip = '';
+          winMovesEl.textContent = String(moves);
+          const subtitleText = 'You matched all 10 pairs in ' + moves + ' moves.';
+          subtitleEl.innerHTML = subtitleText;
+          winOverlay.classList.add('show');
+          launchConfetti();
+        }
       }
 
       function hideWin() {
@@ -514,8 +724,10 @@
         lockBoard = false;
         moves = 0;
         matchedPairs = 0;
-        movesEl.textContent = '0';
-        pairsEl.textContent = '0';
+        const movesEl = document.getElementById('moves');
+        const pairsEl = document.getElementById('pairs');
+        if (movesEl) movesEl.textContent = '0';
+        if (pairsEl) pairsEl.textContent = '0';
         hideWin();
       }
 
@@ -564,14 +776,110 @@
 
       function startNewGame() {
         resetState();
+        if (gameMode === '2p') {
+          resetMultiplayerState();
+        }
         loadCats((urls) => {
           resetState();
+          if (gameMode === '2p') {
+            resetMultiplayerState();
+          }
           boardContainer.innerHTML = '';
           renderBoard(urls);
         });
       }
+
+      function resetMultiplayerState() {
+        activePlayer = 1;
+        players[0].pairs = 0;
+        players[1].pairs = 0;
+        updateToolbarScores();
+        updateToolbarActive();
+      }
+
+      // Mode selection handlers
+      function showGame() {
+        modeSelect.style.display = 'none';
+        toolbar.style.display = '';
+        boardContainer.style.display = '';
+      }
+
+      function showModeSelect() {
+        modeSelect.style.display = '';
+        nameInputs.hidden = true;
+        toolbar.style.display = 'none';
+        boardContainer.style.display = 'none';
+        gameMode = null;
+      }
+
+      mode1pBtn.addEventListener('click', () => {
+        gameMode = '1p';
+        showGame();
+        renderToolbar();
+        startNewGame();
+      });
+
+      mode2pBtn.addEventListener('click', () => {
+        nameInputs.hidden = false;
+      });
+
+      function start2pGame() {
+        const name1 = p1NameInput.value.trim() || 'Player 1';
+        const name2 = p2NameInput.value.trim() || 'Player 2';
+        players = [
+          { name: name1, pairs: 0, color: '#ff6f61' },
+          { name: name2, pairs: 0, color: '#42a5f5' }
+        ];
+        activePlayer = 1;
+        gameMode = '2p';
+        showGame();
+        renderToolbar();
+        startNewGame();
+      }
+
+      startGameBtn.addEventListener('click', start2pGame);
+
+      // Enter key in name inputs triggers start
+      p1NameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') start2pGame();
+      });
+      p2NameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') start2pGame();
+      });
+
+      function renderToolbar() {
+        if (gameMode === '2p') {
+          toolbar.innerHTML = '';
+          toolbar.classList.add('toolbar-2p');
+          toolbar.innerHTML =
+            '<div class="stat player-stat active" data-player="1">' +
+              '<span class="player-name">' + players[0].name + '</span>: <span class="player-pairs">0</span> pairs' +
+            '</div>' +
+            '<div class="stat player-stat inactive" data-player="2">' +
+              '<span class="player-name">' + players[1].name + '</span>: <span class="player-pairs">0</span> pairs' +
+            '</div>' +
+            '<button id="newGameBtn" type="button">New Game</button>';
+          toolbar.querySelector('#newGameBtn').addEventListener('click', startNewGame);
+        } else {
+          toolbar.classList.remove('toolbar-2p');
+          toolbar.innerHTML =
+            '<div class="stat">Moves: <span id="moves">0</span></div>' +
+            '<div class="stat">Pairs: <span id="pairs">0</span>/10</div>' +
+            '<button id="newGameBtn" type="button">New Game</button>';
+          // Re-acquire element references
+          toolbar.querySelector('#newGameBtn').addEventListener('click', startNewGame);
+        }
+      }
+
       newGameBtn.addEventListener('click', startNewGame);
-      playAgainBtn.addEventListener('click', startNewGame);
+      playAgainBtn.addEventListener('click', () => {
+        if (gameMode === '2p') {
+          hideWin();
+          showModeSelect();
+        } else {
+          startNewGame();
+        }
+      });
     })();
   </script>
 </body>
