@@ -400,6 +400,12 @@
       let matchedPairs = 0;
       let loadingCats = false;
 
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
       function shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -559,8 +565,6 @@
             secondCard.classList.add('matched');
             firstCard.dataset.player = String(activePlayer);
             secondCard.dataset.player = String(activePlayer);
-            firstCard.setAttribute('data-player', String(activePlayer));
-            secondCard.setAttribute('data-player', String(activePlayer));
             players[activePlayer - 1].pairs++;
             matchedPairs = players[0].pairs + players[1].pairs;
             updateToolbarScores();
@@ -662,10 +666,10 @@
             // Draw
             emojiEl.textContent = '🤝';
             titleEl.textContent = "It's a Draw!";
-            titleEl.style.background = '';
+            titleEl.style.background = 'none';
             titleEl.style.color = '#333';
-            titleEl.style.webkitBackgroundClip = '';
-            titleEl.style.backgroundClip = '';
+            titleEl.style.webkitBackgroundClip = 'unset';
+            titleEl.style.backgroundClip = 'unset';
             subtitleEl.textContent = p1Score + ' – ' + p2Score;
             winOverlay.classList.add('show');
           } else {
@@ -673,10 +677,10 @@
             const winner = p1Score > p2Score ? players[0] : players[1];
             emojiEl.textContent = '🎉';
             titleEl.textContent = winner.name + ' Wins!';
-            titleEl.style.background = winner.color;
+            titleEl.style.background = 'none';
             titleEl.style.color = winner.color;
-            titleEl.style.webkitBackgroundClip = '';
-            titleEl.style.backgroundClip = '';
+            titleEl.style.webkitBackgroundClip = 'unset';
+            titleEl.style.backgroundClip = 'unset';
             subtitleEl.textContent = players[0].pairs + ' – ' + players[1].pairs;
             winOverlay.classList.add('show');
             launchConfetti();
@@ -690,8 +694,7 @@
           titleEl.style.webkitBackgroundClip = '';
           titleEl.style.backgroundClip = '';
           winMovesEl.textContent = String(moves);
-          const subtitleText = 'You matched all 10 pairs in ' + moves + ' moves.';
-          subtitleEl.innerHTML = subtitleText;
+          subtitleEl.textContent = 'You matched all 10 pairs in ' + moves + ' moves.';
           winOverlay.classList.add('show');
           launchConfetti();
         }
@@ -780,10 +783,6 @@
           resetMultiplayerState();
         }
         loadCats((urls) => {
-          resetState();
-          if (gameMode === '2p') {
-            resetMultiplayerState();
-          }
           boardContainer.innerHTML = '';
           renderBoard(urls);
         });
@@ -853,10 +852,10 @@
           toolbar.classList.add('toolbar-2p');
           toolbar.innerHTML =
             '<div class="stat player-stat active" data-player="1">' +
-              '<span class="player-name">' + players[0].name + '</span>: <span class="player-pairs">0</span> pairs' +
+              '<span class="player-name">' + escapeHtml(players[0].name) + '</span>: <span class="player-pairs">0</span> pairs' +
             '</div>' +
             '<div class="stat player-stat inactive" data-player="2">' +
-              '<span class="player-name">' + players[1].name + '</span>: <span class="player-pairs">0</span> pairs' +
+              '<span class="player-name">' + escapeHtml(players[1].name) + '</span>: <span class="player-pairs">0</span> pairs' +
             '</div>' +
             '<button id="newGameBtn" type="button">New Game</button>';
           toolbar.querySelector('#newGameBtn').addEventListener('click', startNewGame);
