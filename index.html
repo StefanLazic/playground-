@@ -17,6 +17,9 @@
       align-items: center;
       padding: 20px 16px 40px;
     }
+    [hidden] {
+      display: none !important;
+    }
     h1 {
       margin: 0 0 4px;
       font-size: clamp(1.6rem, 4vw, 2.4rem);
@@ -310,7 +313,7 @@
       transform: translateY(-1px) scale(1.03);
     }
     .player-stat.inactive {
-      opacity: 0.35;
+      opacity: 0.5;
       filter: saturate(0.65);
     }
     .player-stat[data-player="1"].active {
@@ -326,7 +329,7 @@
     .turn-indicator {
       display: none;
       margin-left: 8px;
-      font-size: 0.78rem;
+      font-size: 0.875rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
